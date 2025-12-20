@@ -32,18 +32,21 @@ const startStatsAnimation = async () => {
     const visitElement = document.getElementById('visit-count');
     const downloadElement = document.getElementById('download-count');
 
-    // Default fallback values
-    let visits = 15000;
-    let downloads = 5000;
+    // Start with 0 to show real data (or 0 if new)
+    let visits = 0;
+    let downloads = 0;
 
-    // 1. Fetch Visits (using CountAPI as a free service example)
-    // Key is generated based on domain, here using a test key for demo
+    // 1. Fetch Visits
     try {
-        const visitRes = await fetch('https://api.countapi.xyz/hit/tawbah-app.com/visits');
+        // Using a unique key. Note: This will start from 0 initially.
+        // If you want to keep the same count across domains, ensure this key is consistent.
+        const visitRes = await fetch('https://api.countapi.xyz/hit/tawbah-visits-v1/hits');
         const visitData = await visitRes.json();
-        visits = visitData.value || visits;
+        visits = visitData.value;
+        console.log("Visits fetched:", visits);
     } catch (e) {
-        console.warn('Could not fetch visits, using default.', e);
+        console.warn('Could not fetch visits:', e);
+        // Fallback or handle error (e.g. show "N/A" or keep 0)
     }
 
     // 2. Fetch Downloads from GitHub
@@ -57,13 +60,17 @@ const startStatsAnimation = async () => {
                     totalDownloads += asset.download_count;
                 });
             });
-            if (totalDownloads > 0) downloads = totalDownloads;
+            downloads = totalDownloads;
+            console.log("Downloads fetched:", downloads);
+        } else {
+            console.error("GitHub API Error:", githubRes.status);
         }
     } catch (e) {
-        console.warn('Could not fetch github downloads, using default.', e);
+        console.warn('Could not fetch github downloads:', e);
     }
 
     // Animate
+    // For visits/downloads, users usually prefer to see the real number even if low.
     animateValue(visitElement, 0, visits, 2000);
     animateValue(downloadElement, 0, downloads, 2000);
 };
