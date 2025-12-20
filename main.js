@@ -38,16 +38,15 @@ const startStatsAnimation = async () => {
 
     // 1. Fetch Visits using CounterAPI (Stable)
     try {
-        // hits the 'up' endpoint to increment and get current count
         const visitRes = await fetch('https://api.counterapi.dev/v1/tawbah-app/visits/up');
         const visitData = await visitRes.json();
-        // CounterAPI returns { count: 123 }
         if (visitData && visitData.count) {
             visits = visitData.count;
             console.log("Visits fetched (CounterAPI):", visits);
         }
     } catch (e) {
         console.warn('Could not fetch visits:', e);
+        // On domain: Check if AdBlock is on or if connection is blocked.
     }
 
     // 2. Fetch Downloads from GitHub
@@ -98,6 +97,23 @@ if (instaPayCard) {
         navigator.clipboard.writeText(number).then(() => {
             showToast("تم نسخ الرقم بنجاح! ✅");
         });
+    });
+}
+
+// Download Tracker (Click Count)
+const downloadBtn = document.getElementById('download-btn');
+if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => {
+        // Fire and forget - count the download
+        fetch('https://api.counterapi.dev/v1/tawbah-app/downloads/up')
+            .then(res => res.json())
+            .then(data => {
+                console.log("Download counted:", data.count);
+                // Optionally update the displayed number immediately
+                const downloadCountEl = document.getElementById('download-count');
+                if (downloadCountEl && data.count) downloadCountEl.innerText = "+" + data.count.toLocaleString();
+            })
+            .catch(e => console.warn('Tracking error:', e));
     });
 }
 
