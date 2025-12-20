@@ -36,17 +36,18 @@ const startStatsAnimation = async () => {
     let visits = 0;
     let downloads = 0;
 
-    // 1. Fetch Visits
+    // 1. Fetch Visits using CounterAPI (Stable)
     try {
-        // Using a unique key. Note: This will start from 0 initially.
-        // If you want to keep the same count across domains, ensure this key is consistent.
-        const visitRes = await fetch('https://api.countapi.xyz/hit/tawbah-visits-v1/hits');
+        // hits the 'up' endpoint to increment and get current count
+        const visitRes = await fetch('https://api.counterapi.dev/v1/tawbah-app/visits/up');
         const visitData = await visitRes.json();
-        visits = visitData.value;
-        console.log("Visits fetched:", visits);
+        // CounterAPI returns { count: 123 }
+        if (visitData && visitData.count) {
+            visits = visitData.count;
+            console.log("Visits fetched (CounterAPI):", visits);
+        }
     } catch (e) {
         console.warn('Could not fetch visits:', e);
-        // Fallback or handle error (e.g. show "N/A" or keep 0)
     }
 
     // 2. Fetch Downloads from GitHub
