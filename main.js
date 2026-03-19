@@ -1,39 +1,55 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- Fetch GitHub Download Count ---
+    // --- Fetch Download Count (GitHub + Web Clicks) ---
     async function setDownloadCount() {
         const downloadCounter = document.getElementById('github-downloads');
         if (!downloadCounter) return;
         
         try {
-            const response = await fetch('https://api.github.com/repos/saeedali33/Tawbah/releases');
-            if(response.ok) {
-                const releases = await response.json();
-                let total = 0;
-                releases.forEach(r => {
-                    r.assets.forEach(a => {
-                        total += a.download_count;
+            let githubTotal = 0;
+            // 1. Fetch GitHub Downloads
+            try {
+                const response = await fetch('https://api.github.com/repos/saeedali33/Tawbah/releases');
+                if(response.ok) {
+                    const releases = await response.json();
+                    releases.forEach(r => {
+                        r.assets.forEach(a => {
+                            githubTotal += a.download_count;
+                        });
                     });
-                });
-                
-                downloadCounter.setAttribute('data-target', total);
-                
-                // If animation already started or finished, update directly
-                if (downloadCounter.innerText !== '0') {
-                    // Start animation specifically for this element if observer already fired
-                    const inc = total / 200;
-                    let count = 0;
-                    const animate = () => {
-                        if (count < total) {
-                            count += inc;
-                            downloadCounter.innerText = Math.ceil(count);
-                            setTimeout(animate, 20);
-                        } else {
-                            downloadCounter.innerText = "+" + total.toLocaleString();
-                        }
-                    };
-                    animate();
                 }
+            } catch(e) { console.error('GitHub fetch failed:', e); }
+
+            // 2. Fetch Web Clicks (Persistent Counter)
+            let webClicks = 0;
+            try {
+                // Using counterapi.dev to keep a persistent click count
+                const counterRes = await fetch('https://api.counterapi.dev/v1/tawbah_app_saeed/downloads');
+                if(counterRes.ok) {
+                    const data = await counterRes.json();
+                    webClicks = data.count || 0;
+                }
+            } catch(e) { console.error('CounterAPI fetch failed:', e); }
+
+            // Combine both counts so neither is lost
+            let total = githubTotal + webClicks;
+            
+            downloadCounter.setAttribute('data-target', total);
+            
+            // If animation already started or finished, update directly
+            if (downloadCounter.innerText !== '0') {
+                const inc = total / 200;
+                let count = 0;
+                const animate = () => {
+                    if (count < total) {
+                        count += inc;
+                        downloadCounter.innerText = Math.ceil(count);
+                        setTimeout(animate, 20);
+                    } else {
+                        downloadCounter.innerText = "+" + total.toLocaleString();
+                    }
+                };
+                animate();
             }
         } catch(e) {
             console.error(e);
@@ -41,11 +57,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     setDownloadCount();
     
-    // --- Visual Click Tracker for Download Buttons ---
+    // --- Visual and Persistent Click Tracker for Download Buttons ---
     const downloadBtns = document.querySelectorAll('a[href*="releases/download"]');
     downloadBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             const counter = document.getElementById('github-downloads');
+            
+            // Fire the API request to permanently log the click
+            fetch('https://api.counterapi.dev/v1/tawbah_app_saeed/downloads/up')
+               .catch(err => console.error('Failed to update counter:', err));
+
             if (counter && !btn.hasAttribute('data-clicked')) {
                 btn.setAttribute('data-clicked', 'true');
                 
