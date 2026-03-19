@@ -41,6 +41,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     setDownloadCount();
     
+    // --- Visual Click Tracker for Download Buttons ---
+    const downloadBtns = document.querySelectorAll('a[href*="releases/download"]');
+    downloadBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const counter = document.getElementById('github-downloads');
+            if (counter && !btn.hasAttribute('data-clicked')) {
+                btn.setAttribute('data-clicked', 'true');
+                
+                let currentVal = parseInt(counter.getAttribute('data-target')) || parseInt(counter.innerText.replace(/\D/g, '')) || 0;
+                let newVal = currentVal + 1;
+                
+                counter.innerText = "+" + newVal.toLocaleString();
+                counter.setAttribute('data-target', newVal);
+            }
+        });
+    });
+
     // --- Sticky Header Effect ---
     const header = document.querySelector('.header');
     window.addEventListener('scroll', () => {
