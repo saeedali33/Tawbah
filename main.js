@@ -1,131 +1,191 @@
-// Smooth scrolling for navigation links
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        document.querySelector(this.getAttribute('href')).scrollIntoView({
-            behavior: 'smooth'
-        });
-    });
-});
+document.addEventListener('DOMContentLoaded', () => {
 
-// Stats Logic
-const observerOptions = {
-    threshold: 0.5
-};
-
-// Function to animate numbers
-const animateValue = (obj, start, end, duration) => {
-    let startTimestamp = null;
-    const step = (timestamp) => {
-        if (!startTimestamp) startTimestamp = timestamp;
-        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-        obj.innerHTML = "+" + Math.floor(progress * (end - start) + start).toLocaleString();
-        if (progress < 1) {
-            window.requestAnimationFrame(step);
-        }
-    };
-    window.requestAnimationFrame(step);
-};
-
-// Fetch Data & Animate
-const startStatsAnimation = async () => {
-    const visitElement = document.getElementById('visit-count');
-    const downloadElement = document.getElementById('download-count');
-
-    // Start with 0 to show real data (or 0 if new)
-    let visits = 0;
-    let downloads = 0;
-
-    // 1. Fetch Visits using CounterAPI (Stable)
-    try {
-        const visitRes = await fetch('https://api.counterapi.dev/v1/tawbah-app/visits/up');
-        const visitData = await visitRes.json();
-        if (visitData && visitData.count) {
-            visits = visitData.count;
-            console.log("Visits fetched (CounterAPI):", visits);
-        }
-    } catch (e) {
-        console.warn('Could not fetch visits:', e);
-        // On domain: Check if AdBlock is on or if connection is blocked.
-    }
-
-    // 2. Fetch Downloads from GitHub
-    try {
-        const githubRes = await fetch('https://api.github.com/repos/saeedali33/Tawbah/releases');
-        if (githubRes.ok) {
-            const releases = await githubRes.json();
-            let totalDownloads = 0;
-            releases.forEach(release => {
-                release.assets.forEach(asset => {
-                    totalDownloads += asset.download_count;
+    // --- Fetch GitHub Download Count ---
+    async function setDownloadCount() {
+        const downloadCounter = document.getElementById('github-downloads');
+        if (!downloadCounter) return;
+        
+        try {
+            const response = await fetch('https://api.github.com/repos/saeedali33/Tawbah/releases');
+            if(response.ok) {
+                const releases = await response.json();
+                let total = 0;
+                releases.forEach(r => {
+                    r.assets.forEach(a => {
+                        total += a.download_count;
+                    });
                 });
-            });
-            downloads = totalDownloads;
-            console.log("Downloads fetched:", downloads);
-        } else {
-            console.error("GitHub API Error:", githubRes.status);
+                
+                downloadCounter.setAttribute('data-target', total);
+                
+                // If animation already started or finished, update directly
+                if (downloadCounter.innerText !== '0') {
+                    // Start animation specifically for this element if observer already fired
+                    const inc = total / 200;
+                    let count = 0;
+                    const animate = () => {
+                        if (count < total) {
+                            count += inc;
+                            downloadCounter.innerText = Math.ceil(count);
+                            setTimeout(animate, 20);
+                        } else {
+                            downloadCounter.innerText = "+" + total.toLocaleString();
+                        }
+                    };
+                    animate();
+                }
+            }
+        } catch(e) {
+            console.error(e);
         }
-    } catch (e) {
-        console.warn('Could not fetch github downloads:', e);
+    }
+    setDownloadCount();
+    
+    // --- Sticky Header Effect ---
+    const header = document.querySelector('.header');
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 50) {
+            header.classList.add('scrolled');
+        } else {
+            header.classList.remove('scrolled');
+        }
+    });
+
+    // --- Mobile Menu Toggle ---
+    const menuBtn = document.querySelector('.mobile-menu-btn');
+    const navbar = document.querySelector('.navbar');
+    
+    if (menuBtn) {
+        menuBtn.addEventListener('click', () => {
+            navbar.classList.toggle('active');
+        });
     }
 
-    // Animate
-    // For visits/downloads, users usually prefer to see the real number even if low.
-    animateValue(visitElement, 0, visits, 2000);
-    animateValue(downloadElement, 0, downloads, 2000);
-};
+    // --- Copy functionality for InstaPay ---
+    const copyBtns = document.querySelectorAll('.copy-btn');
+    const toast = document.getElementById('toast');
 
-const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            startStatsAnimation();
-            observer.unobserve(entry.target);
-        }
-    });
-}, observerOptions);
-
-const statsSection = document.querySelector('.stats');
-if (statsSection) {
-    observer.observe(statsSection);
-}
-
-// InstaPay Copy Functionality
-const instaPayCard = document.getElementById('instapay-card');
-if (instaPayCard) {
-    instaPayCard.addEventListener('click', () => {
-        const number = instaPayCard.getAttribute('data-clipboard');
-        navigator.clipboard.writeText(number).then(() => {
-            showToast("تم نسخ الرقم بنجاح! ✅");
+    copyBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const card = e.target.closest('.donate-card');
+            const number = card.getAttribute('data-clipboard');
+            
+            if (number) {
+                // Copy to clipboard
+                navigator.clipboard.writeText(number).then(() => {
+                    // Show Toast
+                    showToast();
+                }).catch(err => {
+                    console.error('Failed to copy text: ', err);
+                    // Fallback creation
+                    const tempInput = document.createElement('input');
+                    tempInput.value = number;
+                    document.body.appendChild(tempInput);
+                    tempInput.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(tempInput);
+                    showToast();
+                });
+            }
         });
     });
-}
 
-// Download Tracker (Click Count)
-const downloadBtn = document.getElementById('download-btn');
-if (downloadBtn) {
-    downloadBtn.addEventListener('click', () => {
-        // Fire and forget - count the download
-        fetch('https://api.counterapi.dev/v1/tawbah-app/downloads/up')
-            .then(res => res.json())
-            .then(data => {
-                console.log("Download counted:", data.count);
-                // Optionally update the displayed number immediately
-                const downloadCountEl = document.getElementById('download-count');
-                if (downloadCountEl && data.count) downloadCountEl.innerText = "+" + data.count.toLocaleString();
-            })
-            .catch(e => console.warn('Tracking error:', e));
+    function showToast() {
+        toast.classList.add('show');
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+
+    // --- Scroll Animations via Intersection Observer ---
+    const animatedElements = document.querySelectorAll('.fade-in-up, .fade-in-left, .fade-in-right, .stagger-in');
+
+    const observerOptions = {
+        root: null,
+        rootMargin: '0px',
+        threshold: 0.15 // Trigger when 15% of element is visible
+    };
+
+    const scrollObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('is-visible');
+                
+                // If it's a stagger container, add delays to children
+                if(entry.target.classList.contains('stagger-in')) {
+                    const children = entry.target.children;
+                    for(let i=0; i<children.length; i++) {
+                        children[i].style.transitionDelay = `${i * 150}ms`;
+                        children[i].classList.add('is-visible');
+                    }
+                }
+                
+                // Trigger counter animation if element contains counters
+                if (entry.target.classList.contains('stats') || entry.target.querySelector('.counter')) {
+                   startCounters(entry.target);
+                }
+                
+                // Optional: Stop observing after animating once
+                observer.unobserve(entry.target);
+            }
+        });
+    }, observerOptions);
+
+    animatedElements.forEach(el => {
+        scrollObserver.observe(el);
     });
-}
 
-// Contact Form Logic Removed by User Request
+    // --- Animated Counters ---
+    let countersStarted = false;
+    
+    function startCounters(container) {
+        const counters = container.querySelectorAll('.counter');
+        if (countersStarted || counters.length === 0) return;
+        
+        countersStarted = true;
+        const speed = 200; // lower is slower
 
-function showToast(message = "تم النسخ بنجاح! ✅") {
-    const toast = document.getElementById("toast");
-    toast.textContent = message;
-    toast.className = "toast show";
-    setTimeout(function () {
-        toast.className = toast.className.replace("show", "");
-    }, 3000);
-}
+        counters.forEach(counter => {
+            const animate = () => {
+                const target = +counter.getAttribute('data-target');
+                const count = +counter.innerText.replace(/\+/g, '');
+                
+                // Increment calculation
+                const inc = target / speed;
 
-// Image Slider Logic Removed by User Request
+                if (count < target) {
+                    counter.innerText = Math.ceil(count + inc);
+                    setTimeout(animate, 20);
+                } else {
+                    counter.innerText = "+" + target.toLocaleString();
+                }
+            };
+            animate();
+        });
+    }
+
+    // Ensure smooth scrolling for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href');
+            if (targetId === '#') return;
+            
+            const targetElement = document.querySelector(targetId);
+            if (targetElement) {
+                // Close mobile menu if open
+                navbar.classList.remove('active');
+                
+                const headerOffset = 80;
+                const elementPosition = targetElement.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+  
+                window.scrollTo({
+                     top: offsetPosition,
+                     behavior: "smooth"
+                });
+            }
+        });
+    });
+
+});
